@@ -28,6 +28,7 @@ const cases = [
 for (const c of cases) {
   for (const [pct, color] of c.steps) {
     test(`${c.name} at ${pct}%`, async ($, on) => {
+      mock.store(on)
       on('session.measure', (_, e) => ({ changed: e.changed }))
       await $.session.measure(measure({ [c.key]: pct }))
 
@@ -45,12 +46,24 @@ for (const c of cases) {
 }
 
 test('a gateway spend limit gets its own label', async ($, on) => {
+  mock.store(on)
   on('session.measure', (_, e) => ({ changed: e.changed }))
   const m = measure({})
   await $.session.measure({ ...m, rateLimits: [{ kind: 'spend_limit', percentUsed: 40 }] })
 
   const ui = await $.ui.mount(HINT)
   expect(await ui.find({ type: 'Text', text: /^💳 40%$/ })).toBeTruthy()
+  await ui.unmount()
+})
+
+test('after /clear the line comes from the engine and the hidden cost stays hidden', async ($, on) => {
+  // /clear: no session.start, no session.measure yet, $.state back to its initial values.
+  on('store.get', () => ({ value: true }))
+  on('session.usage', () => ({ value: { ...measure({ ctx: 20 }), startedAt: 0 } }))
+
+  const ui = await $.ui.mount(HINT)
+  expect(await ui.find({ type: 'Text', text: /^ctx 20%$/ })).toBeTruthy()
+  expect(await ui.find({ type: 'Text', text: /^\$1\.50$/ })).toBeFalsy()
   await ui.unmount()
 })
 

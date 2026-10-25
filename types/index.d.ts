@@ -7,6 +7,6 @@ export type Usage = {
 
 declare module 'claude-code' {
   interface PluginState {
-    'footer-split': { measured: Usage | null; hideCost: boolean }
+    'footer-split': { measured: Usage | null; hideCost: boolean | null }
   }
 }

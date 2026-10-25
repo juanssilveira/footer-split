@@ -1,10 +1,13 @@
 import { atom, read, update } from 'claude-code'
-import type { Register } from 'claude-code'
+import type { Engine, Register } from 'claude-code'
 
 import type { Usage } from '../types'
 
 const usage = atom({ plugin: 'footer-split', key: 'measured' } as const, null)
-const hideCost = atom({ plugin: 'footer-split', key: 'hideCost' } as const, false)
+// null until read from the store: /clear starts $.state over and no session.start follows it.
+const hideCost = atom({ plugin: 'footer-split', key: 'hideCost' } as const, null)
+
+const isCostHidden = async ($: Engine) => (await read($, hideCost)) ?? (await $.store.get('hideCost')) === true
 
 const LABELS: Record<string, string> = { context: 'ctx', five_hour: '🕔', seven_day: '📅', spend_limit: '💳' }
 
@@ -38,13 +41,11 @@ const items = (u: Usage, isCostHidden: boolean): Item[] =>
 export const register: Register = on => {
   on('session.start', async ($, e, next) => {
     await $.command.register({ name: 'toggle-cost', description: 'Show or hide the session cost in the prompt footer' })
-    const saved = (await $.store.get('hideCost')) === true
-    await update($, hideCost, () => saved)
     return next(e)
   })
 
   on('command.run', { command: 'toggle-cost' }, async $ => {
-    const isHidden = !(await read($, hideCost))
+    const isHidden = !(await isCostHidden($))
     await update($, hideCost, () => isHidden)
     await $.store.set('hideCost', isHidden)
     return { text: isHidden ? 'Cost hidden.' : 'Cost shown.' }
@@ -57,8 +58,9 @@ export const register: Register = on => {
   })
 
   on('ui.render', { component: 'PromptHint' }, async ($, e) => {
-    const u = await read($, usage)
-    const isCostHidden = await read($, hideCost)
+    // After /clear nothing is measured until the next turn; ask the engine meanwhile.
+    const u = (await read($, usage)) ?? (await $.session.usage())
+    const isHidden = await isCostHidden($)
     // The permission-mode label is drawn by Claude Code outside this component; only the hints arrive here.
     const hint = e.props.hint.replace(/\s*\(shift\+tab to cycle\)/i, '').trim()
     const { Box, Text } = $.ui.resolve(e)
@@ -66,7 +68,7 @@ export const register: Register = on => {
     return (
       <Box flexDirection="row" justifyContent="space-between" gap={2}>
         <Text wrap="truncate-end">
-          {(u ? items(u, isCostHidden) : []).flatMap((i, n) => [
+          {items(u, isHidden).flatMap((i, n) => [
             n > 0 && <Text dimColor> | </Text>,
             i.level === 'normal' ? <Text dimColor>{i.text}</Text> : <Text color={i.level}>{i.text}</Text>,
           ])}
