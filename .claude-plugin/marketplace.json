@@ -1,0 +1,6 @@
+{
+  "name": "footer-split",
+  "description": "Compact usage line for the Claude Code prompt footer",
+  "owner": { "name": "juanssilveira" },
+  "plugins": [{ "name": "footer-split", "source": "./" }]
+}
