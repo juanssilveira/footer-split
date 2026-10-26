@@ -5,8 +5,11 @@ export type Usage = {
   cost?: { usd: number }
 }
 
+// What /toggle set per item; an item left out follows its thresholds.
+export type Modes = Record<string, 'hidden' | 'shown'>
+
 declare module 'claude-code' {
   interface PluginState {
-    'footer-split': { measured: Usage | null; hideCost: boolean | null }
+    'footer-split': { measured: Usage | null; modes: Modes | null }
   }
 }

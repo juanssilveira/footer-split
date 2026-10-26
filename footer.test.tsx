@@ -58,7 +58,8 @@ test('a gateway spend limit gets its own label', async ($, on) => {
 
 test('after /clear the line comes from the engine and the hidden cost stays hidden', async ($, on) => {
   // /clear: no session.start, no session.measure yet, $.state back to its initial values.
-  on('store.get', () => ({ value: true }))
+  // Stored by 0.1.x, before /toggle.
+  on('store.get', (_, e) => ({ value: e.key === 'hideCost' ? true : undefined }))
   on('session.usage', () => ({ value: { ...measure({ ctx: 20 }), startedAt: 0 } }))
 
   const ui = await $.ui.mount(HINT)
@@ -87,4 +88,41 @@ test('toggle-cost hides and shows the cost', async ($, on) => {
   expect(await cost()).toBe(false)
   await $.command.run({ command: 'toggle-cost', args: '' })
   expect(await cost()).toBe(true)
+})
+
+test('/toggle cycles an item through auto, hidden and always shown', async ($, on) => {
+  on('session.measure', (_, e) => ({ changed: e.changed }))
+  mock.store(on)
+  on('command.register', (_, e) => ({ value: { command: e.name } }))
+  on('session.start', (_, e) => ({ cwd: e.cwd }))
+  await $.session.start({ cwd: '/', surface: 'terminal', isInteractive: true })
+
+  const shows = async (ctx: number, text: RegExp) => {
+    await $.session.measure(measure({ ctx }))
+    const ui = await $.ui.mount(HINT)
+    const found = await ui.find({ type: 'Text', text })
+    await ui.unmount()
+    return !!found
+  }
+  const toggle = async (args: string) => (await $.command.run({ command: 'toggle', args })).text
+
+  expect(await shows(5, /^🧠 5%$/)).toBe(false)
+  expect(await shows(70, /^🧠 70%$/)).toBe(true)
+
+  expect(await toggle('ctx')).toBe('ctx: hidden')
+  expect(await shows(70, /^🧠 70%$/)).toBe(false)
+
+  expect(await toggle('ctx')).toBe('ctx: always shown')
+  expect(await shows(5, /^🧠 5%$/)).toBe(true)
+
+  expect(await toggle('ctx')).toBe('ctx: auto')
+  expect(await shows(5, /^🧠 5%$/)).toBe(false)
+
+  // Items without thresholds go straight back from hidden.
+  expect(await toggle('5h')).toBe('5h: hidden')
+  expect(await shows(20, /^🕔 30%$/)).toBe(false)
+  expect(await toggle('5h')).toBe('5h: shown')
+
+  expect(await toggle('ctx')).toBe('ctx: hidden')
+  expect(await toggle('nope')).toBe('Usage: /toggle ctx|5h|weekly|spend|cost')
 })
