@@ -9,7 +9,7 @@ const hideCost = atom({ plugin: 'footer-split', key: 'hideCost' } as const, null
 
 const isCostHidden = async ($: Engine) => (await read($, hideCost)) ?? (await $.store.get('hideCost')) === true
 
-const LABELS: Record<string, string> = { context: 'ctx', five_hour: '🕔', seven_day: '📅', spend_limit: '💳' }
+const LABELS: Record<string, string> = { context: '🧠', five_hour: '🕔', seven_day: '📅', spend_limit: '💳' }
 
 type Level = 'hidden' | 'normal' | 'warning' | 'error'
 type Item = { text: string; level: Level }
@@ -69,7 +69,7 @@ export const register: Register = on => {
       <Box flexDirection="row" justifyContent="space-between" gap={2}>
         <Text wrap="truncate-end">
           {items(u, isHidden).flatMap((i, n) => [
-            n > 0 && <Text dimColor> | </Text>,
+            n > 0 && <Text dimColor> • </Text>,
             i.level === 'normal' ? <Text dimColor>{i.text}</Text> : <Text color={i.level}>{i.text}</Text>,
           ])}
         </Text>

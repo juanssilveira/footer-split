@@ -22,7 +22,7 @@ const measure = ({ ctx = 5, weekly = 0 }) => ({
 
 const cases = [
   { name: 'weekly', label: '📅', key: 'weekly', steps: [[59, null], [60, 'dim'], [80, 'warning'], [90, 'error']] },
-  { name: 'context', label: 'ctx', key: 'ctx', steps: [[9, null], [10, 'dim'], [40, 'warning'], [60, 'error']] },
+  { name: 'context', label: '🧠', key: 'ctx', steps: [[9, null], [10, 'dim'], [40, 'warning'], [60, 'error']] },
 ] as const
 
 for (const c of cases) {
@@ -62,7 +62,7 @@ test('after /clear the line comes from the engine and the hidden cost stays hidd
   on('session.usage', () => ({ value: { ...measure({ ctx: 20 }), startedAt: 0 } }))
 
   const ui = await $.ui.mount(HINT)
-  expect(await ui.find({ type: 'Text', text: /^ctx 20%$/ })).toBeTruthy()
+  expect(await ui.find({ type: 'Text', text: /^🧠 20%$/ })).toBeTruthy()
   expect(await ui.find({ type: 'Text', text: /^\$1\.50$/ })).toBeFalsy()
   await ui.unmount()
 })
