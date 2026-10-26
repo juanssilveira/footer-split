@@ -57,19 +57,12 @@ const cycle = (kind: string, mode: Modes[string] | undefined) =>
 
 export const register: Register = on => {
   on('session.start', async ($, e, next) => {
-    await $.command.register({ name: 'toggle-cost', description: 'Show or hide the session cost in the prompt footer' })
     await $.command.register({
       name: 'toggle',
       description: 'Cycle a footer item: auto, hidden, always shown',
       argumentHint: Object.keys(NAMES).join('|'),
     })
     return next(e)
-  })
-
-  on('command.run', { command: 'toggle-cost' }, async $ => {
-    const mode = cycle('cost', (await getModes($)).cost)
-    await setMode($, 'cost', mode)
-    return { text: mode ? 'Cost hidden.' : 'Cost shown.' }
   })
 
   on('command.run', { command: 'toggle' }, async ($, e) => {

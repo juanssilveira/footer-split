@@ -68,10 +68,10 @@ test('after /clear the line comes from the engine and the hidden cost stays hidd
   await ui.unmount()
 })
 
-test('toggle-cost hides and shows the cost', async ($, on) => {
+test('/toggle cost hides and shows the cost', async ($, on) => {
   on('session.measure', (_, e) => ({ changed: e.changed }))
   mock.store(on)
-  on('command.register', () => ({ value: { command: 'toggle-cost' } }))
+  on('command.register', (_, e) => ({ value: { command: e.name } }))
   on('session.start', (_, e) => ({ cwd: e.cwd }))
   await $.session.start({ cwd: '/', surface: 'terminal', isInteractive: true })
   await $.session.measure(measure({}))
@@ -84,9 +84,9 @@ test('toggle-cost hides and shows the cost', async ($, on) => {
   }
 
   expect(await cost()).toBe(true)
-  await $.command.run({ command: 'toggle-cost', args: '' })
+  await $.command.run({ command: 'toggle', args: 'cost' })
   expect(await cost()).toBe(false)
-  await $.command.run({ command: 'toggle-cost', args: '' })
+  await $.command.run({ command: 'toggle', args: 'cost' })
   expect(await cost()).toBe(true)
 })
 
