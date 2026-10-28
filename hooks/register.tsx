@@ -82,6 +82,28 @@ const items = (th: Thresholds, u: Usage, modes: Modes, now: number): Item[] =>
     u.cost && { kind: 'cost', text: `$${u.cost.usd.toFixed(2)}`, level: 'normal' as const },
   ].filter((i): i is Item => !!i && i.level !== 'hidden' && modes[i.kind] !== 'hidden')
 
+// Terminal cells: the emoji labels take two, everything else this line draws takes one.
+const cells = (s: string) => [...s].reduce((n, c) => n + ((c.codePointAt(0) ?? 0) > 0xffff ? 2 : 1), 0)
+
+// Each item, its time left as ' (2d)', and a ' • ' between items.
+const width = (shown: Item[]) =>
+  shown.reduce((n, i) => n + cells(i.text) + (i.resets ? cells(i.resets.text) + 3 : 0), 3 * (shown.length - 1))
+
+// The engine adds this hint only beside the permission-mode label.
+const CYCLE = /\s*\(shift\+tab to cycle\)/i
+// That label and a space: '⏵⏵ bypass permissions on' is the longest.
+const LABEL = 25
+
+const RANK: Level[] = ['hidden', 'normal', 'warning', 'error']
+
+// Drops items until the line fits: gray first, then yellow, then red, rightmost first.
+// The last one left is cut instead.
+const fit = (shown: Item[], room: number): Item[] => {
+  if (shown.length < 2 || width(shown) <= room) return shown
+  const drop = shown.reduce((d, i, n) => (RANK.indexOf(i.level) <= RANK.indexOf(shown[d].level) ? n : d), 0)
+  return fit(shown.filter((_, n) => n !== drop), room)
+}
+
 // auto -> hidden -> always shown -> auto. Items that never hide on auto skip that step.
 const cycle = (th: Thresholds, kind: string, mode: Modes[string] | undefined) =>
   !mode ? 'hidden' : mode === 'hidden' && !neverHidden(th, kind) ? 'shown' : undefined
@@ -126,11 +148,14 @@ export const register: Register = (on, options) => {
     // Only a window that says when it resets needs the time.
     const now = u.rateLimits.some(l => l.resetsAt) ? await $.clock.now() : 0
     // The permission-mode label is drawn by Claude Code outside this component; only the hints arrive here.
-    const hint = e.props.hint.replace(/\s*\(shift\+tab to cycle\)/i, '').trim()
+    const hint = e.props.hint.replace(CYCLE, '').trim()
     const { Box, Text } = $.ui.resolve(e)
-    const shown = items(th, u, m, now)
+    const all = items(th, u, m, now)
+    // The hint, the gap of 2 before it and the permission-mode label take their share of the row.
+    const taken = cells(hint) + 2 + (CYCLE.test(e.props.hint) ? LABEL : 0)
+    const shown = e.viewport ? fit(all, e.viewport.columns - taken) : all
     // Nothing is measured while the session sits idle, so redraw when the time left ticks down.
-    const wait = Math.min(...shown.map(i => i.resets?.ms ?? Infinity))
+    const wait = Math.min(...all.map(i => i.resets?.ms ?? Infinity))
     redraw?.cancel()
     redraw = wait < Infinity ? $.clock.after(wait, () => $.ui.invalidate('ui.render')) : undefined
 

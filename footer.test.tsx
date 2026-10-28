@@ -217,6 +217,37 @@ test('a yellow or red rate limit says when it resets', async ($, on) => {
   expect(await resets($, 'five_hour', 85, 'soon')).toBe(null)
 })
 
+test('a narrow line drops gray items first, then yellow, and keeps the red', async ($, on) => {
+  mock.store(on)
+  mock.clock(on)
+  on('session.measure', (_, e) => ({ changed: e.changed }))
+  await $.session.measure({
+    ...measure({ ctx: 45 }),
+    rateLimits: [{ kind: 'five_hour', percentUsed: 30 }, { kind: 'seven_day', percentUsed: 92, resetsAt: at(53 * H) }],
+  })
+
+  const line = async (columns?: number, hint = '? for shortcuts') => {
+    const props = { ...HINT.props, hint }
+    const ui = await $.ui.mount({ ...HINT, props, ...(columns && { viewport: { columns, rows: 24 } }) })
+    const found = (await ui.find({ type: 'Text' })) as Found
+    await ui.unmount()
+    return found?.text
+  }
+  const ALL = '🧠 45% • 🕔 30% • 📅 92% (2d) • $1.50'
+
+  // 37 cells of items, a gap of 2 and '? for shortcuts'.
+  expect(await line()).toBe(ALL)
+  expect(await line(54)).toBe(ALL)
+  expect(await line(53)).toBe('🧠 45% • 🕔 30% • 📅 92% (2d)')
+  expect(await line(40)).toBe('🧠 45% • 📅 92% (2d)')
+  expect(await line(30)).toBe('📅 92% (2d)')
+  expect(await line(10)).toBe('📅 92% (2d)')
+  // '(shift+tab to cycle)' comes with the permission-mode label, which takes 25 more.
+  expect(await line(81, HINT.props.hint)).toBe(ALL)
+  expect(await line(80, HINT.props.hint)).toBe('🧠 45% • 🕔 30% • 📅 92% (2d)')
+  expect(await line(54, HINT.props.hint)).toBe('📅 92% (2d)')
+})
+
 test('the time left ticks down while nothing is measured', async ($, on) => {
   mock.store(on)
   const clock = mock.clock(on)
