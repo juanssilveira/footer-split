@@ -1,6 +1,6 @@
 {
   "name": "footersplit",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Compact usage line under the Claude Code prompt: context, 5-hour and weekly limits and cost, colored as they fill up",
   "author": { "name": "juanssilveira" },
   "repository": "https://github.com/juanssilveira/footersplit",
