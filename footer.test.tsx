@@ -126,7 +126,7 @@ test('/toggle cycles an item through auto, hidden and always shown', async ($, o
   expect(await toggle('5h')).toBe('5h: shown')
 
   expect(await toggle('ctx')).toBe('ctx: hidden')
-  expect(await toggle('nope')).toBe('Usage: /toggle ctx|5h|weekly|spend|cost')
+  expect(await toggle('nope')).toBe('Usage: /toggle [ctx|5h|weekly|spend|cost]')
 })
 
 test('/toggle with no item lists every mode', async ($, on) => {

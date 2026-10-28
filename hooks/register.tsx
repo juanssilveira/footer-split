@@ -103,7 +103,7 @@ const CYCLE = /\s*\(shift\+tab to cycle\)/i
 // That label and a space: '⏵⏵ bypass permissions on' is the longest.
 const LABEL = 25
 
-const RANK: Level[] = ['hidden', 'normal', 'warning', 'error']
+const RANK: Level[] = ['normal', 'warning', 'error']
 
 // Drops items until the line fits: gray first, then yellow, then red, rightmost first.
 // The last one left is cut instead.
@@ -152,7 +152,7 @@ export const register: Register = (on, options) => {
     const kind = NAMES[name]
     const m = await getModes($)
     if (!name) return { text: Object.entries(NAMES).map(([n, k]) => `${n}: ${describe(th, k, m[k])}`).join(' • ') }
-    if (!kind) return { text: `Usage: /toggle ${Object.keys(NAMES).join('|')}` }
+    if (!kind) return { text: `Usage: /toggle [${Object.keys(NAMES).join('|')}]` }
     const mode = cycle(th, kind, m[kind])
     await setMode($, kind, mode)
     return { text: `${name}: ${describe(th, kind, mode)}` }

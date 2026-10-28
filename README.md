@@ -43,7 +43,7 @@ The labels are set in `LABELS` at the top of `hooks/register.tsx`.
 ## Limitations
 
 - The permission-mode label (`⏵⏵ auto mode on`) is drawn by Claude Code itself and cannot be changed by a mod. While it shows, items drop out sooner to leave room for it.
-- Mods are an early-access Claude Code feature, and the API may change between releases. Built and tested on Claude Code 2.1.310.
+- Mods are an early-access Claude Code feature, and the API may change between releases. Built and tested on Claude Code 2.1.312.
 
 ## Development
 
