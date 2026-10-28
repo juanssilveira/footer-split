@@ -213,7 +213,6 @@ test('a yellow or red rate limit says when it resets', async ($, on) => {
   expect(await resets($, 'five_hour', 30, at(H))).toBe(null)
   expect(await resets($, 'spend_limit', 40, at(H))).toBe(null)
   expect(await resets($, 'five_hour', 85)).toBe(null)
-  expect(await resets($, 'five_hour', 85, at(-H))).toBe(null)
   expect(await resets($, 'five_hour', 85, 'soon')).toBe(null)
 })
 
@@ -302,4 +301,23 @@ test('an item is colored by the percentage it shows', async ($, on) => {
   expect(await render($, { '5h': 69.4 }, '🕔', 69)).toBe('dim')
   expect(await render($, { '5h': 69.5 }, '🕔', 70)).toBe('warning')
   expect(await render($, { weekly: 59.5 }, '📅', 60)).toBe('dim')
+})
+
+test('a window past its reset counts as empty until it is measured again', async ($, on) => {
+  mock.store(on)
+  const clock = mock.clock(on)
+  on('session.measure', (_, e) => ({ changed: e.changed }))
+  await $.session.measure({
+    ...measure({}),
+    rateLimits: [{ kind: 'five_hour', percentUsed: 95, resetsAt: at(30000) }, { kind: 'seven_day', percentUsed: 92, resetsAt: at(-H) }],
+  })
+
+  const ui = await $.ui.mount(HINT)
+  expect(await ui.find({ type: 'Text', text: /^🕔 95%$/ })).toBeTruthy()
+  expect(await ui.find({ type: 'Text', text: /^📅/ })).toBeFalsy()
+  await clock.advance(30001)
+  const item = (await ui.find({ type: 'Text', text: /^🕔 0%$/ })) as Found
+  expect(item?.props?.dimColor).toBe(true)
+  expect(await ui.find({ type: 'Text', text: /^ \(.*\)$/ })).toBeFalsy()
+  await ui.unmount()
 })

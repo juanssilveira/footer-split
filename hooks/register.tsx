@@ -84,7 +84,10 @@ const percent = (th: Thresholds, kind: string, pct: number, modes: Modes, resets
 const items = (th: Thresholds, u: Usage, modes: Modes, now: number): Item[] =>
   [
     u.context.percent !== undefined && percent(th, 'context', u.context.percent, modes),
-    ...u.rateLimits.map(l => percent(th, l.kind, l.percentUsed, modes, left(l.resetsAt, now))),
+    // A window past its reset starts over, though nothing has measured it since.
+    ...u.rateLimits.map(l =>
+      percent(th, l.kind, Date.parse(l.resetsAt ?? '') <= now ? 0 : l.percentUsed, modes, left(l.resetsAt, now)),
+    ),
     u.cost && { kind: 'cost', text: `$${u.cost.usd.toFixed(2)}`, level: 'normal' as const },
   ].filter((i): i is Item => !!i && i.level !== 'hidden' && modes[i.kind] !== 'hidden')
 
