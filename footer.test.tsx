@@ -294,3 +294,12 @@ test('/align puts the usage on either side, and keeps it there without a hint', 
   expect(await align('left')).toBe('align: left')
   expect(await row()).toEqual([LINE, '? for shortcuts'])
 })
+
+test('an item is colored by the percentage it shows', async ($, on) => {
+  mock.store(on)
+  on('session.measure', (_, e) => ({ changed: e.changed }))
+
+  expect(await render($, { '5h': 69.4 }, '🕔', 69)).toBe('dim')
+  expect(await render($, { '5h': 69.5 }, '🕔', 70)).toBe('warning')
+  expect(await render($, { weekly: 59.5 }, '📅', 60)).toBe('dim')
+})

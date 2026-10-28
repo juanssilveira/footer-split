@@ -70,10 +70,12 @@ const left = (resetsAt: string | undefined, now: number): Left | undefined => {
 }
 
 const percent = (th: Thresholds, kind: string, pct: number, modes: Modes, resets?: Left): Item => {
-  const l = level(th[kind], pct)
+  // Colored by the number it shows: 69.5% reads 70% and is yellow at 70.
+  const p = Math.round(pct)
+  const l = level(th[kind], p)
   return {
     kind,
-    text: `${LABELS[kind] ?? kind} ${Math.round(pct)}%`,
+    text: `${LABELS[kind] ?? kind} ${p}%`,
     level: l === 'hidden' && modes[kind] === 'shown' ? 'normal' : l,
     resets: l === 'warning' || l === 'error' ? resets : undefined,
   }
