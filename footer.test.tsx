@@ -1,7 +1,7 @@
 import { expect, mock, test } from 'claude-code/testing'
 
 const HINT = {
-  plugin: 'footer-split',
+  plugin: 'footersplit',
   component: 'PromptHint',
   requestId: 'hint',
   surface: 'terminal',

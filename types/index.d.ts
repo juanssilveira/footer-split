@@ -10,6 +10,6 @@ export type Modes = Record<string, 'hidden' | 'shown'>
 
 declare module 'claude-code' {
   interface PluginState {
-    'footer-split': { measured: Usage | null; modes: Modes | null }
+    footersplit: { measured: Usage | null; modes: Modes | null }
   }
 }

@@ -1,4 +1,4 @@
-# footer-split
+# footersplit
 
 A Claude Code mod that turns the hint line under the prompt into a compact usage line: what you have used on the left, the usual hints on the right.
 
@@ -23,7 +23,7 @@ Rate limits only appear on a Claude subscription or a gateway with a spend limit
 In a Claude Code session, run:
 
 ```
-/plugin install footer-split --marketplace juanssilveira/footer-split
+/plugin install footersplit --marketplace juanssilveira/footersplit
 ```
 
 Answer `y` to add the marketplace, then pick a scope.
