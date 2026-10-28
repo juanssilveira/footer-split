@@ -10,10 +10,10 @@ const HINT = {
 
 type Found = { text: string; props?: { color?: string; dimColor?: boolean } } | undefined
 
-const measure = ({ ctx = 5, weekly = 0 }) => ({
+const measure = ({ ctx = 5, '5h': fiveHour = 30, weekly = 0 }) => ({
   context: { window: 200000, percent: ctx },
   rateLimits: [
-    { kind: 'five_hour', percentUsed: 30 },
+    { kind: 'five_hour', percentUsed: fiveHour },
     { kind: 'seven_day', percentUsed: weekly },
   ],
   cost: { usd: 1.5 },
@@ -23,6 +23,7 @@ const measure = ({ ctx = 5, weekly = 0 }) => ({
 const cases = [
   { name: 'weekly', label: '📅', key: 'weekly', steps: [[59, null], [60, 'dim'], [80, 'warning'], [90, 'error']] },
   { name: 'context', label: '🧠', key: 'ctx', steps: [[9, null], [10, 'dim'], [40, 'warning'], [60, 'error']] },
+  { name: '5h', label: '🕔', key: '5h', steps: [[0, 'dim'], [69, 'dim'], [70, 'warning'], [90, 'error']] },
 ] as const
 
 for (const c of cases) {
@@ -38,7 +39,7 @@ for (const c of cases) {
       expect(!!item).toBe(color !== null)
       if (color === 'dim') expect(item?.props?.dimColor).toBe(true)
       if (color === 'warning' || color === 'error') expect(item?.props?.color).toBe(color)
-      expect(await ui.find({ type: 'Text', text: /^🕔 30%$/ })).toBeTruthy()
+      if (c.key !== '5h') expect(await ui.find({ type: 'Text', text: /^🕔 30%$/ })).toBeTruthy()
       expect(await ui.find({ type: 'Text', text: /shift\+tab/ })).toBeFalsy()
       await ui.unmount()
     })
@@ -118,7 +119,7 @@ test('/toggle cycles an item through auto, hidden and always shown', async ($, o
   expect(await toggle('ctx')).toBe('ctx: auto')
   expect(await shows(5, /^🧠 5%$/)).toBe(false)
 
-  // Items without thresholds go straight back from hidden.
+  // Items that never hide on auto go straight back from hidden.
   expect(await toggle('5h')).toBe('5h: hidden')
   expect(await shows(20, /^🕔 30%$/)).toBe(false)
   expect(await toggle('5h')).toBe('5h: shown')

@@ -30,8 +30,12 @@ type Item = { kind: string; text: string; level: Level }
 // Percentages at which an item [appears, turns yellow, turns red]. Items without an entry are always shown.
 const THRESHOLDS: Record<string, [number, number, number]> = {
   context: [10, 40, 60],
+  five_hour: [0, 70, 90],
   seven_day: [60, 80, 90],
 }
+
+// Items that never hide on auto: no thresholds, or one that appears from 0%.
+const neverHidden = (kind: string) => !THRESHOLDS[kind]?.[0]
 
 const level = (kind: string, pct: number): Level => {
   const t = THRESHOLDS[kind]
@@ -51,9 +55,9 @@ const items = (u: Usage, modes: Modes): Item[] =>
     u.cost && { kind: 'cost', text: `$${u.cost.usd.toFixed(2)}`, level: 'normal' as const },
   ].filter((i): i is Item => !!i && i.level !== 'hidden' && modes[i.kind] !== 'hidden')
 
-// auto -> hidden -> always shown -> auto. Items without thresholds are always shown on auto, so they skip that step.
+// auto -> hidden -> always shown -> auto. Items that never hide on auto skip that step.
 const cycle = (kind: string, mode: Modes[string] | undefined) =>
-  !mode ? 'hidden' : mode === 'hidden' && THRESHOLDS[kind] ? 'shown' : undefined
+  !mode ? 'hidden' : mode === 'hidden' && !neverHidden(kind) ? 'shown' : undefined
 
 export const register: Register = on => {
   on('session.start', async ($, e, next) => {
@@ -71,7 +75,7 @@ export const register: Register = on => {
     if (!kind) return { text: `Usage: /toggle ${Object.keys(NAMES).join('|')}` }
     const mode = cycle(kind, (await getModes($))[kind])
     await setMode($, kind, mode)
-    return { text: `${name}: ${mode === 'shown' ? 'always shown' : mode ?? (THRESHOLDS[kind] ? 'auto' : 'shown')}` }
+    return { text: `${name}: ${mode === 'shown' ? 'always shown' : mode ?? (neverHidden(kind) ? 'shown' : 'auto')}` }
   })
 
   on('session.measure', async ($, e, next) => {

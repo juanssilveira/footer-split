@@ -11,7 +11,7 @@ A Claude Code mod that turns the hint line under the prompt into a compact usage
 | Item | Meaning | Hidden below | Gray | Yellow | Red |
 |------|---------|--------------|------|--------|-----|
 | 🧠 | Context window used | 10% | 10–39% | 40–59% | 60%+ |
-| 🕔 | 5-hour rate limit | never | always | — | — |
+| 🕔 | 5-hour rate limit | never | 0–69% | 70–89% | 90%+ |
 | 📅 | Weekly rate limit | 60% | 60–79% | 80–89% | 90%+ |
 | 💳 | Gateway spend limit | never | always | — | — |
 | `$` | Session cost | never | always | — | — |
