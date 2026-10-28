@@ -181,3 +181,56 @@ test('a malformed threshold falls back to the default', { options: { context: '5
   expect(await render($, { weekly: 59 }, '📅', 59)).toBe(null)
   expect(await render($, { weekly: 90 }, '📅', 90)).toBe('error')
 })
+
+const EMOJI: Record<string, string> = { five_hour: '🕔', seven_day: '📅', spend_limit: '💳' }
+const H = 3600000
+// The mocked clock starts at 0, so a reset ms from now is at new Date(ms).
+const at = (ms: number) => new Date(ms).toISOString()
+
+const resets = async ($: Engine, kind: string, pct: number, resetsAt?: string) => {
+  await $.session.measure({ ...measure({}), rateLimits: [{ kind, percentUsed: pct, ...(resetsAt && { resetsAt }) }] })
+  const ui = await $.ui.mount(HINT)
+  const item = await ui.find({ type: 'Text', text: new RegExp(`^${EMOJI[kind]} ${pct}%$`) })
+  const found = (await ui.find({ type: 'Text', text: /^ \(.*\)$/ })) as Found
+  await ui.unmount()
+  expect(!!item).toBe(true)
+  if (found) expect(found.props?.dimColor).toBe(true)
+  return found?.text ?? null
+}
+
+test('a yellow or red rate limit says when it resets', async ($, on) => {
+  mock.store(on)
+  mock.clock(on)
+  on('session.measure', (_, e) => ({ changed: e.changed }))
+
+  expect(await resets($, 'seven_day', 92, at(53 * H))).toBe(' (2d)')
+  expect(await resets($, 'seven_day', 92, at(47 * H))).toBe(' (1d)')
+  expect(await resets($, 'seven_day', 92, at(24 * H))).toBe(' (1d)')
+  expect(await resets($, 'five_hour', 85, at(2 * H - 1000))).toBe(' (1h)')
+  expect(await resets($, 'five_hour', 95, at(40.5 * 60000))).toBe(' (40m)')
+  expect(await resets($, 'five_hour', 95, at(20000))).toBe(' (1m)')
+  // Gray items keep the line short.
+  expect(await resets($, 'five_hour', 30, at(H))).toBe(null)
+  expect(await resets($, 'spend_limit', 40, at(H))).toBe(null)
+  expect(await resets($, 'five_hour', 85)).toBe(null)
+  expect(await resets($, 'five_hour', 85, at(-H))).toBe(null)
+  expect(await resets($, 'five_hour', 85, 'soon')).toBe(null)
+})
+
+test('the time left ticks down while nothing is measured', async ($, on) => {
+  mock.store(on)
+  const clock = mock.clock(on)
+  on('session.measure', (_, e) => ({ changed: e.changed }))
+  await $.session.measure({ ...measure({}), rateLimits: [{ kind: 'five_hour', percentUsed: 95, resetsAt: at(H + 30000) }] })
+
+  const ui = await $.ui.mount(HINT)
+  const shown = async () => ((await ui.find({ type: 'Text', text: /^ \(.*\)$/ })) as Found)?.text ?? null
+  expect(await shown()).toBe(' (1h)')
+  await clock.advance(30001)
+  expect(await shown()).toBe(' (59m)')
+  await clock.advance(59 * 60000)
+  expect(await shown()).toBe(' (1m)')
+  await clock.advance(60000)
+  expect(await shown()).toBe(null)
+  await ui.unmount()
+})

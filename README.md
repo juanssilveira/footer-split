@@ -16,7 +16,7 @@ A Claude Code mod that turns the hint line under the prompt into a compact usage
 | 💳 | Gateway spend limit | never | always | — | — |
 | `$` | Session cost | never | always | — | — |
 
-Rate limits only appear on a Claude subscription or a gateway with a spend limit. The `(shift+tab to cycle)` hint is dropped to save space.
+Rate limits only appear on a Claude subscription or a gateway with a spend limit. Once one turns yellow or red, it also shows the time left until it resets, rounded down to whole days, hours or minutes: `📅 92% (2d)`, `🕔 85% (1h)`, `🕔 95% (40m)`. The last minute shows as `1m`. The `(shift+tab to cycle)` hint is dropped to save space.
 
 ## Install
 

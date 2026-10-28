@@ -1,7 +1,7 @@
 // Mirrors the fields of the engine's SessionMeasureInput that the footer reads.
 export type Usage = {
   context: { percent?: number }
-  rateLimits: { kind: string; percentUsed: number }[]
+  rateLimits: { kind: string; percentUsed: number; resetsAt?: string }[]
   cost?: { usd: number }
 }
 

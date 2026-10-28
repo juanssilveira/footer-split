@@ -1,5 +1,5 @@
 import { atom, read, update } from 'claude-code'
-import type { EngineInterface, PluginOptions, Register } from 'claude-code'
+import type { EngineInterface, PluginOptions, Register, Timer } from 'claude-code'
 
 import type { Modes, Usage } from '../types'
 
@@ -25,7 +25,9 @@ const LABELS: Record<string, string> = { context: '🧠', five_hour: '🕔', sev
 const NAMES: Record<string, string> = { ctx: 'context', '5h': 'five_hour', weekly: 'seven_day', spend: 'spend_limit', cost: 'cost' }
 
 type Level = 'hidden' | 'normal' | 'warning' | 'error'
-type Item = { kind: string; text: string; level: Level }
+// The time left, and how long until that text changes.
+type Left = { text: string; ms: number }
+type Item = { kind: string; text: string; level: Level; resets?: Left }
 
 type Range = [number, number, number]
 type Thresholds = Record<string, Range>
@@ -53,15 +55,30 @@ const neverHidden = (th: Thresholds, kind: string) => !th[kind]?.[0]
 const level = (t: Range | undefined, pct: number): Level =>
   !t ? 'normal' : pct < t[0] ? 'hidden' : pct < t[1] ? 'normal' : pct < t[2] ? 'warning' : 'error'
 
-const percent = (th: Thresholds, kind: string, pct: number, modes: Modes): Item => {
-  const l = level(th[kind], pct)
-  return { kind, text: `${LABELS[kind] ?? kind} ${Math.round(pct)}%`, level: l === 'hidden' && modes[kind] === 'shown' ? 'normal' : l }
+const UNITS: [string, number][] = [['d', 86400000], ['h', 3600000], ['m', 60000]]
+
+// Time until a window resets, rounded down: '2d', '3h', '40m', at least '1m'. None once it has passed.
+const left = (resetsAt: string | undefined, now: number): Left | undefined => {
+  const ms = Date.parse(resetsAt ?? '') - now
+  if (!(ms > 0)) return undefined
+  const [unit, size] = UNITS.find(([, s]) => ms >= s) ?? UNITS[2]
+  return { text: `${Math.max(1, Math.floor(ms / size))}${unit}`, ms: (ms % size) + 1 }
 }
 
-const items = (th: Thresholds, u: Usage, modes: Modes): Item[] =>
+const percent = (th: Thresholds, kind: string, pct: number, modes: Modes, resets?: Left): Item => {
+  const l = level(th[kind], pct)
+  return {
+    kind,
+    text: `${LABELS[kind] ?? kind} ${Math.round(pct)}%`,
+    level: l === 'hidden' && modes[kind] === 'shown' ? 'normal' : l,
+    resets: l === 'warning' || l === 'error' ? resets : undefined,
+  }
+}
+
+const items = (th: Thresholds, u: Usage, modes: Modes, now: number): Item[] =>
   [
     u.context.percent !== undefined && percent(th, 'context', u.context.percent, modes),
-    ...u.rateLimits.map(l => percent(th, l.kind, l.percentUsed, modes)),
+    ...u.rateLimits.map(l => percent(th, l.kind, l.percentUsed, modes, left(l.resetsAt, now))),
     u.cost && { kind: 'cost', text: `$${u.cost.usd.toFixed(2)}`, level: 'normal' as const },
   ].filter((i): i is Item => !!i && i.level !== 'hidden' && modes[i.kind] !== 'hidden')
 
@@ -74,6 +91,7 @@ const describe = (th: Thresholds, kind: string, mode: Modes[string] | undefined)
 
 export const register: Register = (on, options) => {
   const th = thresholds(options)
+  let redraw: Timer | undefined
 
   on('session.start', async ($, e, next) => {
     await $.command.register({
@@ -105,16 +123,24 @@ export const register: Register = (on, options) => {
     // After /clear nothing is measured until the next turn; ask the engine meanwhile.
     const u = (await read($, usage)) ?? (await $.session.usage())
     const m = await getModes($)
+    // Only a window that says when it resets needs the time.
+    const now = u.rateLimits.some(l => l.resetsAt) ? await $.clock.now() : 0
     // The permission-mode label is drawn by Claude Code outside this component; only the hints arrive here.
     const hint = e.props.hint.replace(/\s*\(shift\+tab to cycle\)/i, '').trim()
     const { Box, Text } = $.ui.resolve(e)
+    const shown = items(th, u, m, now)
+    // Nothing is measured while the session sits idle, so redraw when the time left ticks down.
+    const wait = Math.min(...shown.map(i => i.resets?.ms ?? Infinity))
+    redraw?.cancel()
+    redraw = wait < Infinity ? $.clock.after(wait, () => $.ui.invalidate('ui.render')) : undefined
 
     return (
       <Box flexDirection="row" justifyContent="space-between" gap={2}>
         <Text wrap="truncate-end">
-          {items(th, u, m).flatMap((i, n) => [
+          {shown.flatMap((i, n) => [
             n > 0 && <Text dimColor> • </Text>,
             i.level === 'normal' ? <Text dimColor>{i.text}</Text> : <Text color={i.level}>{i.text}</Text>,
+            i.resets && <Text dimColor>{` (${i.resets.text})`}</Text>,
           ])}
         </Text>
         <Text dimColor wrap="truncate-start">{hint}</Text>
