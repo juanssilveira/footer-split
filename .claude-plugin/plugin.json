@@ -6,5 +6,25 @@
   "repository": "https://github.com/juanssilveira/footersplit",
   "license": "MIT",
   "keywords": ["statusline", "usage", "rate-limits", "footer"],
-  "types": "./types/index.d.ts"
+  "types": "./types/index.d.ts",
+  "userConfig": {
+    "context": {
+      "type": "string",
+      "title": "🧠 Context thresholds",
+      "description": "Percentages at which the context item appears, turns yellow and turns red",
+      "default": "10 40 60"
+    },
+    "five_hour": {
+      "type": "string",
+      "title": "🕔 5-hour limit thresholds",
+      "description": "Percentages at which the 5-hour limit appears, turns yellow and turns red",
+      "default": "0 70 90"
+    },
+    "seven_day": {
+      "type": "string",
+      "title": "📅 Weekly limit thresholds",
+      "description": "Percentages at which the weekly limit appears, turns yellow and turns red",
+      "default": "60 80 90"
+    }
+  }
 }

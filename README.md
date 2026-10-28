@@ -33,7 +33,9 @@ Answer `y` to add the marketplace, then pick a scope.
 - `/toggle <item>` cycles an item through auto (the table above), hidden and always shown. Items: `ctx`, `5h`, `weekly`, `spend`, `cost`. Items that are always shown on auto just switch between shown and hidden. The choice is kept across sessions.
 - `/toggle` on its own lists every item with its current mode.
 
-To change the colors' thresholds or the labels, edit `THRESHOLDS` and `LABELS` at the top of `hooks/register.tsx`.
+The table shows the default thresholds. To change them, set the three footersplit rows (🧠, 🕔 and 📅) in `/config`, or on the screen that comes up when you install. Each row takes three percentages: where the item appears, turns yellow and turns red, like `10 40 60`. Repeat a number to skip a color: `0 90 90` keeps 🕔 gray until it turns red at 90%. A value that isn't three numbers from 0 to 100 in that order falls back to the default. The values are saved in settings.json under `pluginConfigs`, so plugin updates keep them.
+
+The labels are set in `LABELS` at the top of `hooks/register.tsx`.
 
 ## Limitations
 

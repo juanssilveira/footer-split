@@ -1,5 +1,5 @@
 import { atom, read, update } from 'claude-code'
-import type { EngineInterface, Register } from 'claude-code'
+import type { EngineInterface, PluginOptions, Register } from 'claude-code'
 
 import type { Modes, Usage } from '../types'
 
@@ -27,42 +27,54 @@ const NAMES: Record<string, string> = { ctx: 'context', '5h': 'five_hour', weekl
 type Level = 'hidden' | 'normal' | 'warning' | 'error'
 type Item = { kind: string; text: string; level: Level }
 
-// Percentages at which an item [appears, turns yellow, turns red]. Items without an entry are always shown.
-const THRESHOLDS: Record<string, [number, number, number]> = {
+type Range = [number, number, number]
+type Thresholds = Record<string, Range>
+
+// Percentages at which an item [appears, turns yellow, turns red], unless its option says otherwise.
+// Items without an entry are always shown.
+const THRESHOLDS: Thresholds = {
   context: [10, 40, 60],
   five_hour: [0, 70, 90],
   seven_day: [60, 80, 90],
 }
 
-// Items that never hide on auto: no thresholds, or one that appears from 0%.
-const neverHidden = (kind: string) => !THRESHOLDS[kind]?.[0]
-
-const level = (kind: string, pct: number): Level => {
-  const t = THRESHOLDS[kind]
-  if (!t) return 'normal'
-  return pct < t[0] ? 'hidden' : pct < t[1] ? 'normal' : pct < t[2] ? 'warning' : 'error'
+// An option reads '10 40 60'; anything but three percentages in order keeps the default.
+const parse = (value: unknown, fallback: Range): Range => {
+  const t = String(value).trim().split(/[\s,]+/).map(Number)
+  return t.length === 3 && t.every((n, i) => n >= (t[i - 1] ?? 0) && n <= 100) ? (t as Range) : fallback
 }
 
-const percent = (kind: string, pct: number, modes: Modes): Item => {
-  const l = level(kind, pct)
+const thresholds = (options: PluginOptions): Thresholds =>
+  Object.fromEntries(Object.entries(THRESHOLDS).map(([kind, t]) => [kind, parse(options[kind], t)]))
+
+// Items that never hide on auto: no thresholds, or one that appears from 0%.
+const neverHidden = (th: Thresholds, kind: string) => !th[kind]?.[0]
+
+const level = (t: Range | undefined, pct: number): Level =>
+  !t ? 'normal' : pct < t[0] ? 'hidden' : pct < t[1] ? 'normal' : pct < t[2] ? 'warning' : 'error'
+
+const percent = (th: Thresholds, kind: string, pct: number, modes: Modes): Item => {
+  const l = level(th[kind], pct)
   return { kind, text: `${LABELS[kind] ?? kind} ${Math.round(pct)}%`, level: l === 'hidden' && modes[kind] === 'shown' ? 'normal' : l }
 }
 
-const items = (u: Usage, modes: Modes): Item[] =>
+const items = (th: Thresholds, u: Usage, modes: Modes): Item[] =>
   [
-    u.context.percent !== undefined && percent('context', u.context.percent, modes),
-    ...u.rateLimits.map(l => percent(l.kind, l.percentUsed, modes)),
+    u.context.percent !== undefined && percent(th, 'context', u.context.percent, modes),
+    ...u.rateLimits.map(l => percent(th, l.kind, l.percentUsed, modes)),
     u.cost && { kind: 'cost', text: `$${u.cost.usd.toFixed(2)}`, level: 'normal' as const },
   ].filter((i): i is Item => !!i && i.level !== 'hidden' && modes[i.kind] !== 'hidden')
 
 // auto -> hidden -> always shown -> auto. Items that never hide on auto skip that step.
-const cycle = (kind: string, mode: Modes[string] | undefined) =>
-  !mode ? 'hidden' : mode === 'hidden' && !neverHidden(kind) ? 'shown' : undefined
+const cycle = (th: Thresholds, kind: string, mode: Modes[string] | undefined) =>
+  !mode ? 'hidden' : mode === 'hidden' && !neverHidden(th, kind) ? 'shown' : undefined
 
-const describe = (kind: string, mode: Modes[string] | undefined) =>
-  mode === 'shown' ? 'always shown' : mode ?? (neverHidden(kind) ? 'shown' : 'auto')
+const describe = (th: Thresholds, kind: string, mode: Modes[string] | undefined) =>
+  mode === 'shown' ? 'always shown' : mode ?? (neverHidden(th, kind) ? 'shown' : 'auto')
 
-export const register: Register = on => {
+export const register: Register = (on, options) => {
+  const th = thresholds(options)
+
   on('session.start', async ($, e, next) => {
     await $.command.register({
       name: 'toggle',
@@ -76,11 +88,11 @@ export const register: Register = on => {
     const name = e.args.trim()
     const kind = NAMES[name]
     const m = await getModes($)
-    if (!name) return { text: Object.entries(NAMES).map(([n, k]) => `${n}: ${describe(k, m[k])}`).join(' • ') }
+    if (!name) return { text: Object.entries(NAMES).map(([n, k]) => `${n}: ${describe(th, k, m[k])}`).join(' • ') }
     if (!kind) return { text: `Usage: /toggle ${Object.keys(NAMES).join('|')}` }
-    const mode = cycle(kind, m[kind])
+    const mode = cycle(th, kind, m[kind])
     await setMode($, kind, mode)
-    return { text: `${name}: ${describe(kind, mode)}` }
+    return { text: `${name}: ${describe(th, kind, mode)}` }
   })
 
   on('session.measure', async ($, e, next) => {
@@ -100,7 +112,7 @@ export const register: Register = on => {
     return (
       <Box flexDirection="row" justifyContent="space-between" gap={2}>
         <Text wrap="truncate-end">
-          {items(u, m).flatMap((i, n) => [
+          {items(th, u, m).flatMap((i, n) => [
             n > 0 && <Text dimColor> • </Text>,
             i.level === 'normal' ? <Text dimColor>{i.text}</Text> : <Text color={i.level}>{i.text}</Text>,
           ])}

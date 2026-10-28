@@ -1,4 +1,5 @@
 import { expect, mock, test } from 'claude-code/testing'
+import type { Engine } from 'claude-code/testing'
 
 const HINT = {
   plugin: 'footersplit',
@@ -140,4 +141,43 @@ test('/toggle with no item lists every mode', async ($, on) => {
   await toggle('ctx')
   await toggle('cost')
   expect(await toggle(' ')).toBe('ctx: always shown • 5h: shown • weekly: auto • spend: shown • cost: hidden')
+})
+
+const render = async ($: Engine, m: Parameters<typeof measure>[0], label: string, pct: number) => {
+  await $.session.measure(measure(m))
+  const ui = await $.ui.mount(HINT)
+  const item = (await ui.find({ type: 'Text', text: new RegExp(`^${label} ${pct}%$`) })) as Found
+  await ui.unmount()
+  return !item ? null : item.props?.color ?? (item.props?.dimColor ? 'dim' : undefined)
+}
+
+test('thresholds come from the options', { options: { context: '0 20 30', five_hour: '0 90 90', seven_day: '10, 20, 30' } }, async ($, on) => {
+  mock.store(on)
+  on('session.measure', (_, e) => ({ changed: e.changed }))
+  on('command.register', (_, e) => ({ value: { command: e.name } }))
+  on('session.start', (_, e) => ({ cwd: e.cwd }))
+  await $.session.start({ cwd: '/', surface: 'terminal', isInteractive: true })
+
+  expect(await render($, { ctx: 5 }, '🧠', 5)).toBe('dim')
+  expect(await render($, { ctx: 25 }, '🧠', 25)).toBe('warning')
+  expect(await render($, { weekly: 9 }, '📅', 9)).toBe(null)
+  expect(await render($, { weekly: 35 }, '📅', 35)).toBe('error')
+  // A repeated number skips a color.
+  expect(await render($, { '5h': 89 }, '🕔', 89)).toBe('dim')
+  expect(await render($, { '5h': 90 }, '🕔', 90)).toBe('error')
+  // ctx now appears from 0%, so it never hides on auto.
+  expect((await $.command.run({ command: 'toggle', args: '' })).text).toBe('ctx: shown • 5h: shown • weekly: auto • spend: shown • cost: shown')
+  await $.command.run({ command: 'toggle', args: 'ctx' })
+  expect((await $.command.run({ command: 'toggle', args: 'ctx' })).text).toBe('ctx: shown')
+})
+
+test('a malformed threshold falls back to the default', { options: { context: '5 10 3', five_hour: 'soon', seven_day: '10 20 120' } }, async ($, on) => {
+  mock.store(on)
+  on('session.measure', (_, e) => ({ changed: e.changed }))
+
+  expect(await render($, { ctx: 9 }, '🧠', 9)).toBe(null)
+  expect(await render($, { ctx: 40 }, '🧠', 40)).toBe('warning')
+  expect(await render($, { '5h': 70 }, '🕔', 70)).toBe('warning')
+  expect(await render($, { weekly: 59 }, '📅', 59)).toBe(null)
+  expect(await render($, { weekly: 90 }, '📅', 90)).toBe('error')
 })
