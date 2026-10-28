@@ -127,3 +127,17 @@ test('/toggle cycles an item through auto, hidden and always shown', async ($, o
   expect(await toggle('ctx')).toBe('ctx: hidden')
   expect(await toggle('nope')).toBe('Usage: /toggle ctx|5h|weekly|spend|cost')
 })
+
+test('/toggle with no item lists every mode', async ($, on) => {
+  mock.store(on)
+  on('command.register', (_, e) => ({ value: { command: e.name } }))
+  on('session.start', (_, e) => ({ cwd: e.cwd }))
+  await $.session.start({ cwd: '/', surface: 'terminal', isInteractive: true })
+  const toggle = async (args: string) => (await $.command.run({ command: 'toggle', args })).text
+
+  expect(await toggle('')).toBe('ctx: auto • 5h: shown • weekly: auto • spend: shown • cost: shown')
+  await toggle('ctx')
+  await toggle('ctx')
+  await toggle('cost')
+  expect(await toggle(' ')).toBe('ctx: always shown • 5h: shown • weekly: auto • spend: shown • cost: hidden')
+})

@@ -59,12 +59,15 @@ const items = (u: Usage, modes: Modes): Item[] =>
 const cycle = (kind: string, mode: Modes[string] | undefined) =>
   !mode ? 'hidden' : mode === 'hidden' && !neverHidden(kind) ? 'shown' : undefined
 
+const describe = (kind: string, mode: Modes[string] | undefined) =>
+  mode === 'shown' ? 'always shown' : mode ?? (neverHidden(kind) ? 'shown' : 'auto')
+
 export const register: Register = on => {
   on('session.start', async ($, e, next) => {
     await $.command.register({
       name: 'toggle',
       description: 'Cycle a footer item: auto, hidden, always shown',
-      argumentHint: Object.keys(NAMES).join('|'),
+      argumentHint: `[${Object.keys(NAMES).join('|')}]`,
     })
     return next(e)
   })
@@ -72,10 +75,12 @@ export const register: Register = on => {
   on('command.run', { command: 'toggle' }, async ($, e) => {
     const name = e.args.trim()
     const kind = NAMES[name]
+    const m = await getModes($)
+    if (!name) return { text: Object.entries(NAMES).map(([n, k]) => `${n}: ${describe(k, m[k])}`).join(' • ') }
     if (!kind) return { text: `Usage: /toggle ${Object.keys(NAMES).join('|')}` }
-    const mode = cycle(kind, (await getModes($))[kind])
+    const mode = cycle(kind, m[kind])
     await setMode($, kind, mode)
-    return { text: `${name}: ${mode === 'shown' ? 'always shown' : mode ?? (neverHidden(kind) ? 'shown' : 'auto')}` }
+    return { text: `${name}: ${describe(kind, mode)}` }
   })
 
   on('session.measure', async ($, e, next) => {

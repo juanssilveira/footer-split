@@ -31,6 +31,7 @@ Answer `y` to add the marketplace, then pick a scope.
 ## Usage
 
 - `/toggle <item>` cycles an item through auto (the table above), hidden and always shown. Items: `ctx`, `5h`, `weekly`, `spend`, `cost`. Items that are always shown on auto just switch between shown and hidden. The choice is kept across sessions.
+- `/toggle` on its own lists every item with its current mode.
 
 To change the colors' thresholds or the labels, edit `THRESHOLDS` and `LABELS` at the top of `hooks/register.tsx`.
 
