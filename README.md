@@ -1,6 +1,6 @@
 # footersplit
 
-A Claude Code mod that turns the hint line under the prompt into a compact usage line: what you have used on the left, the usual hints on the right.
+A Claude Code mod that turns the hint line under the prompt into a compact usage line: what you have used on one side, the usual hints on the other.
 
 ```
 🧠 23% • 🕔 62% • $1.24                                   esc to interrupt
@@ -34,6 +34,7 @@ Answer `y` to add the marketplace, then pick a scope.
 
 - `/toggle <item>` cycles an item through auto (the table above), hidden and always shown. Items: `ctx`, `5h`, `weekly`, `spend`, `cost`. Items that are always shown on auto just switch between shown and hidden. The choice is kept across sessions.
 - `/toggle` on its own lists every item with its current mode.
+- `/align right` moves the usage to the right edge and the hints to the left. `/align left` puts them back, and `/align` on its own shows the current side. The usage starts on the left, and the choice is kept across sessions.
 
 The table shows the default thresholds. To change them, set the three footersplit rows (🧠, 🕔 and 📅) in `/config`, or on the screen that comes up when you install. Each row takes three percentages: where the item appears, turns yellow and turns red, like `10 40 60`. Repeat a number to skip a color: `0 90 90` keeps 🕔 gray until it turns red at 90%. A value that isn't three numbers from 0 to 100 in that order falls back to the default. The values are saved in settings.json under `pluginConfigs`, so plugin updates keep them.
 

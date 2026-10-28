@@ -265,3 +265,32 @@ test('the time left ticks down while nothing is measured', async ($, on) => {
   expect(await shown()).toBe(null)
   await ui.unmount()
 })
+
+test('/align puts the usage on either side, and keeps it there without a hint', async ($, on) => {
+  mock.store(on)
+  on('session.measure', (_, e) => ({ changed: e.changed }))
+  on('command.register', (_, e) => ({ value: { command: e.name } }))
+  on('session.start', (_, e) => ({ cwd: e.cwd }))
+  await $.session.start({ cwd: '/', surface: 'terminal', isInteractive: true })
+  await $.session.measure(measure({ ctx: 20 }))
+
+  // The texts across the row, left to right.
+  const row = async (hint = '? for shortcuts') => {
+    const ui = await $.ui.mount({ ...HINT, props: { ...HINT.props, hint } })
+    const texts = (await ui.findAll({ type: 'Text' })).filter(t => t.text === hint || t.text.startsWith('🧠 20% •'))
+    await ui.unmount()
+    return texts.map(t => t.text)
+  }
+  const align = async (args: string) => (await $.command.run({ command: 'align', args })).text
+  const LINE = '🧠 20% • 🕔 30% • $1.50'
+
+  expect(await align('')).toBe('align: left')
+  expect(await row()).toEqual([LINE, '? for shortcuts'])
+  expect(await align('right')).toBe('align: right')
+  expect(await row()).toEqual(['? for shortcuts', LINE])
+  expect(await row('')).toEqual(['', LINE])
+  expect(await align('')).toBe('align: right')
+  expect(await align('middle')).toBe('Usage: /align [left|right]')
+  expect(await align('left')).toBe('align: left')
+  expect(await row()).toEqual([LINE, '? for shortcuts'])
+})

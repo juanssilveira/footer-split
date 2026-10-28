@@ -1,11 +1,15 @@
 import { atom, read, update } from 'claude-code'
 import type { EngineInterface, PluginOptions, Register, Timer } from 'claude-code'
 
-import type { Modes, Usage } from '../types'
+import type { Align, Modes, Usage } from '../types'
 
 const usage = atom({ plugin: 'footersplit', key: 'measured' } as const, null)
 // null until read from the store: /clear starts $.state over and no session.start follows it.
 const modes = atom({ plugin: 'footersplit', key: 'modes' } as const, null)
+const align = atom({ plugin: 'footersplit', key: 'align' } as const, null)
+
+const getAlign = async ($: EngineInterface): Promise<Align> =>
+  (await read($, align)) ?? ((await $.store.get('align')) as Align | undefined) ?? 'left'
 
 const getModes = async ($: EngineInterface): Promise<Modes> =>
   (await read($, modes)) ??
@@ -121,7 +125,21 @@ export const register: Register = (on, options) => {
       description: 'Cycle a footer item: auto, hidden, always shown',
       argumentHint: `[${Object.keys(NAMES).join('|')}]`,
     })
+    await $.command.register({
+      name: 'align',
+      description: 'Put the usage on the left or the right of the footer',
+      argumentHint: '[left|right]',
+    })
     return next(e)
+  })
+
+  on('command.run', { command: 'align' }, async ($, e) => {
+    const side = e.args.trim()
+    if (!side) return { text: `align: ${await getAlign($)}` }
+    if (side !== 'left' && side !== 'right') return { text: 'Usage: /align [left|right]' }
+    await update($, align, () => side)
+    await $.store.set('align', side)
+    return { text: `align: ${side}` }
   })
 
   on('command.run', { command: 'toggle' }, async ($, e) => {
@@ -159,15 +177,25 @@ export const register: Register = (on, options) => {
     redraw?.cancel()
     redraw = wait < Infinity ? $.clock.after(wait, () => $.ui.invalidate('ui.render')) : undefined
 
-    return (
+    const line = (
+      <Text wrap="truncate-end">
+        {shown.flatMap((i, n) => [
+          n > 0 && <Text dimColor> • </Text>,
+          i.level === 'normal' ? <Text dimColor>{i.text}</Text> : <Text color={i.level}>{i.text}</Text>,
+          i.resets && <Text dimColor>{` (${i.resets.text})`}</Text>,
+        ])}
+      </Text>
+    )
+
+    // Both always drawn, so the usage keeps its side while the hint is empty.
+    return (await getAlign($)) === 'right' ? (
       <Box flexDirection="row" justifyContent="space-between" gap={2}>
-        <Text wrap="truncate-end">
-          {shown.flatMap((i, n) => [
-            n > 0 && <Text dimColor> • </Text>,
-            i.level === 'normal' ? <Text dimColor>{i.text}</Text> : <Text color={i.level}>{i.text}</Text>,
-            i.resets && <Text dimColor>{` (${i.resets.text})`}</Text>,
-          ])}
-        </Text>
+        <Text dimColor wrap="truncate-end">{hint}</Text>
+        {line}
+      </Box>
+    ) : (
+      <Box flexDirection="row" justifyContent="space-between" gap={2}>
+        {line}
         <Text dimColor wrap="truncate-start">{hint}</Text>
       </Box>
     )
